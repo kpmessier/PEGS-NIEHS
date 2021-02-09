@@ -49,18 +49,50 @@ roads <- spTransform(roads, CRS("+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +
 #there are a lot of spatial packages in r that have coalesced around a spatial data science group
 # rspatial.org
 
-#might be better to try splitting the lines into points in R
-data_rds<- NULL
 
-for (i in 1:length(spdf2)) {
-  l<- spdf2[i,]
+
+  l <- split(spdf2, spdf2$epr_number_TYPE) #split the spatial dataframe by row into a list of dataframes
+  lbuff_1km <- lapply(l, gBuffer, width = 1000) #apply gbuffer
+
+  e <- NA
+  rd_1kmfun <- function(i){
+    tryCatch(raster::crop(roads, extent(lbuff_1km[[i]])), error = function(e) e) 
+    #create a function to crop the roads dataset by the extent of the buffer
+    #tryCatch deals with any error messages and leaves it as an Simple error object
+  }
+
+
+
+  rd_1km <- lapply(1:5, rd_1kmfun) # lapply statement with that function
+  
+  totrd_1kmfun <- function(i){
+    
+    ifelse(class(rd_1km[[i]])[1] == "simpleError", NA, gLength(rd_1km[[i]], byid=F))
+    #find total road length in buffer if there are roads within the buffer
+    #otherwise, NA
+  }
+  
+  totrd_1km <- lapply(1:5, totrd_1kmfun) # lapply statement with that function
+  
+
+  mindist_1kmfun <- function(i){
+    
+    ifelse(class(rd_1km[[i]])[1] == "simpleError", NA, min(gDistance(unlist(l[[i]]), unlist(rd_1km[[i]]), byid=T)))
+    #find minimum distance from point to road if there are roads within the buffer
+    #otherwise, NA
+  }
+  mindist_1km<- lapply(1:5, mindist_1kmfun) # lapply statement with that function
+  
+  
+  nearn_1km <- st_nn(st_as_sf(l[[i]]),ptsrd_1km, returnDist=T )#find k nearest neighbors + distance
+  
   
 buff_1 <-  function(l){
   # 1km buffer
   lbuff_1km <- gBuffer(l, width = 1000) #establish buffer around address
   rd_1km <- raster::crop(roads, extent(lbuff_1km)) # crop roads spatial data by extent of buffer
   mindist2rd_1km <- min(gDistance(l, rd_1km, byid=TRUE)) # find distance from address to lines 
-  totrd_1km <- gLength(rd_1km, byid=F) #find total road leangth in buffer
+  totrd_1km <- gLength(rd_1km, byid=F) #find total road length in buffer
   ptsrd_1km = st_as_sf(as(rd_1km, "SpatialPointsDataFrame")) # make roads into points
   l2 <- st_as_sf(l) #convert l to st
   nearn_1km <- st_nn(l2,ptsrd_1km, returnDist=T )#find k nearest neighbors + distance
@@ -68,7 +100,8 @@ buff_1 <-  function(l){
   return(c(eprnumtype, mindist2rd_1km, totrd_1km, unlist(nearn_1km)))
  
 }  
-
+#make an apply statement for each of the components. lapply working on a list is the most flexible - slowerish
+#
 test <- try(buff_1(l))
 if(class(test)=="try-error") {next()}
 dat1 <- as.data.frame(t(test))
