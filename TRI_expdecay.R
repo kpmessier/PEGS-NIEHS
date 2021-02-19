@@ -29,7 +29,7 @@ spdf <- SpatialPointsDataFrame(coords = xy, data = PEGS2, proj4string = CRS("+pr
 spdf2 <- spTransform(spdf,  CRS("+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"))
 
 
-
+#label file directory
 files.dir <- "~/Desktop/TRI/tri_val" 
 
 filenames_TRI <- list.files(path=files.dir, full.names=T) 
@@ -38,12 +38,12 @@ TOLUENE <- NULL
 BENZENE <- NULL
 XYLENE <- NULL
 EB <- NULL
-for (i in 1:length(filenames_TRI)){
-#for (i in 1:3){
-  name1 <- (filenames_TRI[i])
+for (i in 1:length(filenames_TRI)){ #there are 16 files-ish of TRI data
+  name1 <- (filenames_TRI[i]) #give it a name to pull
   print(name1)
-  TRI_a <- read.csv(name1)
+  TRI_a <- read.csv(name1) #read in the files one at a time
   
+  #subset to specific chemicals by name and/or CAS id.
   TOLUENE_a<- subset(TRI_a, TRI_a$X34..CHEMICAL == "TOLUENE" | TRI_a$X36..CAS...COMPOUND.ID == "108883")
   
   BENZENE_a <- subset(TRI_a, TRI_a$X34..CHEMICAL == "BENZENE"| TRI_a$X36..CAS...COMPOUND.ID == "71432")
@@ -52,6 +52,7 @@ for (i in 1:length(filenames_TRI)){
   
   EB_a <- subset(TRI_a, TRI_a$X34..CHEMICAL == "ETHYLBENZENE" | TRI_a$X36..CAS...COMPOUND.ID == "100414")
   
+  #rbind each year together and export it as a dataframe
   TOLUENE <- as.data.frame(rbind(TOLUENE, TOLUENE_a))
   BENZENE <- as.data.frame(rbind(BENZENE, BENZENE_a))
   XYLENE <- as.data.frame(rbind(XYLENE, XYLENE_a))
@@ -61,19 +62,22 @@ for (i in 1:length(filenames_TRI)){
 
 
 
-
+#to decrease the size of the dataframes, I only saved specific columns that i thought were important
 TOLUENE2 <- subset(TOLUENE, select= c(X12..LATITUDE, X13..LONGITUDE, X4..FACILITY.NAME, X45..5.1...FUGITIVE.AIR,X46..5.2...STACK.AIR,X6..CITY,X7..COUNTY,X8..ST))
 BENZENE2 <- subset(BENZENE, select= c(X12..LATITUDE, X13..LONGITUDE, X4..FACILITY.NAME, X45..5.1...FUGITIVE.AIR,X46..5.2...STACK.AIR,X6..CITY,X7..COUNTY,X8..ST))
 XYLENE2 <- subset(XYLENE, select= c(X12..LATITUDE, X13..LONGITUDE, X4..FACILITY.NAME, X45..5.1...FUGITIVE.AIR,X46..5.2...STACK.AIR,X6..CITY,X7..COUNTY,X8..ST))
 EB2 <- subset(EB, select= c(X12..LATITUDE, X13..LONGITUDE, X4..FACILITY.NAME, X45..5.1...FUGITIVE.AIR,X46..5.2...STACK.AIR,X6..CITY,X7..COUNTY,X8..ST))
 
+#created a list of state abbreviations because I don't want puerto rico etc in the data set
 states <- c("AL","AZ","AR","CA", "CO", "CT", "DE", "FL","GA","ID","IL","IN","IA", "KS","KY","LA","ME","MD","MA","MI",
           "MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX", "UT","VT", "VA","WA","WV","WI","WY","DC")
+#subset based on only the contiguous united states
 TOLUENE2 <- subset(TOLUENE2, TOLUENE2$X8..ST %in% states)
 BENZENE2 <- subset(BENZENE2, BENZENE2$X8..ST %in% states)
 XYLENE2 <- subset(XYLENE2, XYLENE2$X8..ST %in% states)
 EB2 <- subset(EB2, EB2$X8..ST %in% states)
 
+#create unique locations based on lat/long instead of addresses etc.
 TOLUENE2$location <- paste0(TOLUENE2$X12..LATITUDE, TOLUENE2$X13..LONGITUDE)
 length(unique(TOLUENE2$location))
 BENZENE2$location <- paste0(BENZENE2$X12..LATITUDE, BENZENE2$X13..LONGITUDE)
@@ -84,24 +88,27 @@ EB2$location <- paste0(EB2$X12..LATITUDE, EB2$X13..LONGITUDE)
 length(unique(EB2$location))
 
 
+#write to file just to be safe
 
 #write.csv(TOLUENE2, file="~/Desktop/TRI/tri_tot/TOLUENE_allyears.csv", row.names=F) #all addresses
 #write.csv(BENZENE2, file="~/Desktop/TRI/tri_tot/BENZENE_allyears.csv", row.names=F) #all addresses
 #write.csv(XYLENE2, file="~/Desktop/TRI/tri_tot/XYLENE_allyears.csv", row.names=F) #all addresses
 #write.csv(EB2, file="~/Desktop/TRI/tri_tot/TOLUENE_allyears.csv", row.names=F) #all addresses
 
-
+#read in files if necessary
 
 # TOLUENE2 <- read.csv("~/Desktop/TRI/tri_tot/TOLUENE_allyears.csv") #all addresses
 # BENZENE2 <- read.csv("~/Desktop/TRI/tri_tot/BENZENE_allyears.csv") #all addresses
 # XYLENE2 <- read.csv("~/Desktop/TRI/tri_tot/XYLENE_allyears.csv") #all addresses
 # EB2 <- read.csv("~/Desktop/TRI/tri_tot/TOLUENE_allyears.csv") #all addresses
-
+#check how many locations so that we have the right size matrices at the end
 tloc <- unique(TOLUENE2$location) #3172
 bloc <- unique(BENZENE2$location) # 1755
 xloc <- unique(XYLENE2$location) #5568
 ebloc <- unique(EB2$location) #3172
 library(dplyr)
+#we want the mean values at each location across the years so use the summarise statement and 
+#then rbind into an empty dataframe with each row from the locations
 TOLUENE2.0 <- NULL
 for (i in 1:3172)
 {
@@ -152,7 +159,8 @@ TOLUENE3 <- sf:::as_Spatial(st_as_sf(TOLUENE25, coords = c('longitude','latitude
 BENZENE3 <- sf:::as_Spatial(st_as_sf(BENZENE25, coords = c('longitude','latitude'), crs ="+proj=longlat +datum=NAD83 +no_defs"))
 XYLENE3 <- sf:::as_Spatial(st_as_sf(XYLENE25, coords = c('longitude','latitude'), crs ="+proj=longlat +datum=NAD83 +no_defs"))
 EB3 <- sf:::as_Spatial(st_as_sf(EB25, coords = c('longitude','latitude'), crs ="+proj=longlat +datum=NAD83 +no_defs"))
-
+#alberts equal area conic projection so that the math works out.
+#pointDistance only works on the euclidean distances
 TOLUENE4 <- spTransform(TOLUENE3, CRS("+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs") ) 
 BENZENE4 <- spTransform(BENZENE3, CRS("+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs") ) 
 XYLENE4 <- spTransform(XYLENE3, CRS("+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs") ) 
@@ -212,7 +220,7 @@ psEXP <- function(d,C0,decay) {
 #apply exponential decay function across the 12339 sites
 
 
-decay2 <- c(1000,5000,10000) #decay distance options in meteres
+decay2 <- c(1000,5000,10000) #decay distance options in meters
 test_benzene <- psEXP(matrixtest_b, BENZENE2.0$stackair, decay2) #apply decay function
 test_benzene <- as.data.frame(cbind(spdf2$epr_number_TYPE, test_benzene))#add epr identifier
 names(test_benzene) <-  c("epr_number_TYPE", "epdecay_1km", "epdecay_5km","epdecay_10km") #label columns
